@@ -1,0 +1,152 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+1.随机分组
+基于R语言“xlsx”包，读取excel数据文件“Database.xls”中的名为“star”的表格(sheetName = "star")，并在程序里面将数据库命名为“star”。
+```{r}
+library(xlsx)
+star1r<- read.csv("test_set_with_predictions-lr.csv")
+stargbm<- read.csv("test_set_with_predictions-Gradient boosting machine model.csv")
+
+starrf<- read.csv("test_set_with_predictions-Random forests model.csv")
+
+stardt<- read.csv("test_set_with_predictions-decision tree.csv")
+
+starnn<- read.csv("test_set_with_predictions-nn.csv")
+
+starXgbc<- read.csv("test_set_with_predictions-Xgbc.csv")
+
+```
+
+
+
+```{r}
+library(pROC)
+roc1<- roc(star1r$anxietyanddepression, star1r$lr_pred_proba)
+roc2<- roc(stargbm$anxietyanddepression, stargbm$lr_pred_proba)
+roc3<- roc(starrf$anxietyanddepression, starrf$lr_pred_proba)
+roc4<- roc(stardt$anxietyanddepression, stardt$lr_pred_proba)
+roc5<- roc(starnn$anxietyanddepression, starnn$lr_pred_proba)
+roc6<- roc(starXgbc$anxietyanddepression, starXgbc$lr_pred_proba)
+```
+
+
+```{r}
+tiff(filename="ROC-x2.tif", width=600*6, height=600*6, res=90*6)
+par(mfrow=c(1,1), mar=c(4.2,4.2,3,1.5), pty="m")
+
+plot(roc1,col="red",legacy.axes=T,lwd=0.8)
+plot(roc2, add=TRUE, col="yellow",lwd=0.8)
+plot(roc3, add=TRUE, col="green",lwd=0.8)
+plot(roc4, add=TRUE, col="Cyan",lwd=0.8)
+plot(roc5, add=TRUE, col="blue",lwd=0.8)
+plot(roc6, add=TRUE, col="purple",lwd=0.8)
+legend(0.60,0.35,
+       c('Logistic Regression (0.815)','Gradient Boosting Machine (0.820)','Random Forest (0.811)','Decision Tree (0.806)','Neural Network (0.818)','XGBoosting Machine (0.820)'),
+       lty=c(1,1,1,1,1,1),
+       lwd=c(0.8,0.8,0.8,0.8,0.8,0.8),
+       col=c("red","yellow","green","Cyan","blue","purple"),
+       bty="n")
+
+dev.off()
+```
+
+
+```{r}
+library(rms)
+full1r <- lrm(anxietyanddepression~lr_pred_proba,
+            data=star1r,x=T,y=T,linear.predictors=T)
+cali1r <- calibrate(full1r, method="boot",B=1000)
+
+fullgbm <- lrm(anxietyanddepression~lr_pred_proba,
+            data=stargbm,x=T,y=T,linear.predictors=T)
+caligbm <- calibrate(fullgbm, method="boot",B=1000)
+
+fullrf <- lrm(anxietyanddepression~lr_pred_proba,
+            data=starrf,x=T,y=T,linear.predictors=T)
+calirf <- calibrate(fullrf, method="boot",B=1000)
+
+fullsvm <- lrm(anxietyanddepression~lr_pred_proba,
+            data=starsvm,x=T,y=T,linear.predictors=T)
+calisvm <- calibrate(fullsvm, method="boot",B=1000)
+
+fullensemble <- lrm(anxietyanddepression~lr_pred_proba,
+            data=starensemble,x=T,y=T,linear.predictors=T)
+caliensemble <- calibrate(fullensemble, method="boot",B=1000)
+
+fullXgbc <- lrm(anxietyanddepression~lr_pred_proba,
+            data=starXgbc,x=T,y=T,linear.predictors=T)
+caliXgbc <- calibrate(fullXgbc, method="boot",B=1000)
+```
+
+
+
+calibration curves绘制
+```{r}
+
+tiff(filename="Calibration_curve-x.tif", width=600*6, height=600*6, res=90*6)
+par(mfrow=c(1,1), mar=c(4.2,4.2,3,1.5), pty="m")
+
+plot(1,type='n',
+     xlim=c(0,1),
+     ylim=c(0,1),
+     xlab="Predicted Probability",
+     ylab="Observed Porbability",
+     legend=F,
+     subtitles=F)
+abline(0,1,col="black",lty=2,lwd=1)
+
+lines(cali1r[,c("predy","calibrated.corrected")],lty=1,lwd=2,col="red",pch=16)
+lines(caligbm[,c("predy","calibrated.corrected")],lty=1,lwd=2,col="yellow",pch=16)
+lines(calirf[,c("predy","calibrated.corrected")],lty=1,lwd=2,col="green",pch=16)
+lines(calisvm[,c("predy","calibrated.corrected")],lty=1,lwd=2,col="Cyan",pch=16)
+lines(caliensemble[,c("predy","calibrated.corrected")],lty=1,lwd=2,col="blue",pch=16)
+lines(caliXgbc[,c("predy","calibrated.corrected")],lty=1,lwd=2,col="purple",pch=16)
+
+legend(0.50,0.35,
+       c("Ideal",'Logistic Regression','Gradient Boosting Machine','Random Forest','Support Vector Machine','Ensemble Prediction','XGBoosting Machine'),
+       lty=c(2,1,1,1,1,1,1),
+       lwd=c(1,2,2,2,2,2,2),
+       col=c("black","red","yellow","green","Cyan","blue","purple"),
+       bty="n")
+dev.off()
+```
+
+
+Decision curve绘制
+```{r}
+library(rmda)
+model1r <- decision_curve(anxietyanddepression~lr_pred_proba,data=star1r,fitted.risk=T)
+modelgbm <- decision_curve(anxietyanddepression~lr_pred_proba,data=stargbm,fitted.risk=T)
+
+modelrf <- decision_curve(anxietyanddepression~lr_pred_proba,data=starrf,fitted.risk=T)
+modeldt <- decision_curve(anxietyanddepression~lr_pred_proba,data=stardt,fitted.risk=T)
+
+modelnn <- decision_curve(anxietyanddepression~lr_pred_proba,data=starnn,fitted.risk=T)
+
+modelXgbc <- decision_curve(anxietyanddepression~lr_pred_proba,data=starXgbc,fitted.risk=T)
+
+
+
+```
+
+
+```{r}
+tiff(filename="Decision_curve_x.tif", width=600*6, height=600*6, res=90*6)
+par(mfrow=c(1,1), mar=c(4.2,4.2,3,.5), pty="m")
+plot_decision_curve(list(model1r,modelgbm,modelrf,modeldt,modelnn,modelXgbc), curve.names=c('Logistic Regression','Gradient Boosting Machine','Random Forest','Decision Tree','Neural Network','XGBoosting Machine'),xlim=c(0,0.8),ylim=c(0,0.5),
+                    cost.benefit.axis=T,
+                    lwd = c(0.8, 0.8, 0.8, 0.8, 0.8, 0.8),
+                    confidence.intervals=F,standardize=FALSE)
+dev.off()
+```
+
+col=c('red'),
+
+```{r}
+plot_decision_curve(list(model1r,modelgbm), curve.names = c("Baseline model",
+    "Full model"), col = c("blue", "red"), lty = c(1, 2),  legend.position = "bottomright")
+```
+
